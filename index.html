@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spark Learner - AI Academic Assistant</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #12101a;
+            --primary-color: #1a152a;
+            --secondary-color: #2a224a;
+            --accent-purple: #9b59b6;
+            --accent-red: #e74c3c;
+            --accent-teal: #1abc9c; 
+            --glow-purple: rgba(155, 89, 182, 0.4);
+            --glow-red: rgba(231, 76, 60, 0.5);
+            --glow-teal: rgba(26, 188, 156, 0.4);
+            --text-color: #f0f0f0;
+            --border-radius: 14px;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        }
+
+        body[data-theme="light"] {
+            --bg-color: #f4f7fc;
+            --primary-color: #ffffff;
+            --secondary-color: #eef2f9;
+            --text-color: #333;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center; /* Default to center for auth screens */
+            min-height: 100vh;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 9999;
+            display: flex; /* Visible by default */
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        .splash-spinner { border: 5px solid var(--secondary-color); border-top-color: var(--accent-teal); border-bottom-color: var(--accent-purple); border-radius: 50%; width: 60px; height: 60px; animation: spin 1.5s linear infinite; }
+        .splash-text { font-size: 1.5rem; margin-top: 20px; color: var(--text-color); opacity: 0; animation: fadeIn 1s forwards; letter-spacing: 1px; }
+
+        #auth-container {
+            width: 100%; max-width: 450px; background-color: var(--primary-color);
+            padding: 40px; border-radius: var(--border-radius); box-shadow: var(--shadow);
+            border: 1px solid var(--secondary-color); text-align: center;
+            animation: fadeIn 0.5s ease-out;
+            display: none; /* Initially hidden */
+        }
+        #auth-container h2 { font-size: 2rem; margin-bottom: 25px; color: var(--text-color); }
+        .auth-form { display: none; }
+        .auth-form.active { display: block; }
+        .auth-form .form-group { text-align: left; }
+        .auth-form .submit-btn { margin-top: 20px; }
+        .toggle-auth, .forgot-password { margin-top: 20px; color: var(--accent-teal); cursor: pointer; transition: color 0.3s; display: inline-block; }
+        .toggle-auth:hover, .forgot-password:hover { color: #fff; }
+        .auth-error { color: var(--accent-red); margin-top: 15px; font-weight: 500; height: 20px; }
+
+        .app-container {
+            width: 100%; max-width: 850px; background-color: var(--primary-color);
+            border-radius: var(--border-radius); box-shadow: var(--shadow);
+            overflow: hidden; border: 1px solid var(--secondary-color);
+            display: none;
+        }
+
+        header {
+            padding: 25px 30px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-red), var(--accent-teal));
+            display: flex; justify-content: space-between; align-items: center; position: relative;
+        }
+        header h1 { font-size: 2.5rem; font-weight: 700; color: #fff; text-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        
+        #menu-container { position: relative; }
+        #menu-icon { width: 32px; height: 32px; cursor: pointer; color: #fff; transition: transform 0.3s; }
+        #menu-icon:hover { transform: scale(1.1); }
+        #dropdown-menu {
+            display: none; position: absolute; top: 50px; right: 0;
+            background-color: var(--secondary-color); border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5); overflow: hidden; z-index: 100;
+        }
+        #dropdown-menu.active { display: block; animation: fadeIn 0.3s; }
+        .menu-item {
+            background: none; border: none; color: var(--text-color); display: flex; align-items: center; gap: 10px;
+            padding: 12px 25px; cursor: pointer; font-weight: 500;
+            font-size: 1rem; width: 100%; text-align: left; transition: background-color 0.3s;
+        }
+        .menu-item svg { width: 20px; height: 20px; }
+        .menu-item:hover { background-color: var(--accent-red); }
+        #theme-toggle-container { padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; }
+        #theme-toggle { cursor: pointer; width: 50px; height: 25px; background: var(--bg-color); border-radius: 25px; position: relative; }
+        #theme-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 21px; height: 21px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        body[data-theme="light"] #theme-toggle::after { transform: translateX(25px); }
+
+        main { padding: 30px; }
+        .tabs { display: flex; margin-bottom: 30px; background-color: var(--secondary-color); border-radius: var(--border-radius); padding: 5px; }
+        .tab-button { flex: 1; padding: 15px; cursor: pointer; background: none; border: none; color: var(--text-color); font-size: 1rem; font-weight: 600; border-radius: 10px; transition: all 0.3s ease; }
+        .tab-button.active { background-color: var(--accent-purple); color: #fff; box-shadow: 0 0 15px var(--glow-purple); }
+        
+        .tab-content-container { position: relative; overflow: hidden; }
+        .tab-content {
+            opacity: 0;
+            transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+            position: absolute;
+            width: 100%;
+            pointer-events: none;
+        }
+        .tab-content.active {
+            opacity: 1;
+            position: relative;
+            pointer-events: auto;
+        }
+
+        .form-group { margin-bottom: 22px; }
+        label { display: block; margin-bottom: 10px; font-weight: 500; font-size: 1.1rem; }
+        .row { display: flex; gap: 20px; }
+        .row .form-group { flex: 1; }
+        .input-field, .select-field, .textarea-field { width: 100%; padding: 16px; border-radius: 10px; border: 1px solid var(--secondary-color); background-color: var(--bg-color); color: var(--text-color); font-size: 1rem; font-family: 'Poppins', sans-serif; transition: all 0.3s ease; }
+        .input-field:focus, .select-field:focus, .textarea-field:focus { outline: none; border-color: var(--accent-teal); box-shadow: 0 0 12px var(--glow-teal); }
+        .textarea-field { min-height: 140px; resize: vertical; }
+        .drop-zone { border: 3px dashed var(--secondary-color); border-radius: var(--border-radius); padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s ease; }
+        .drop-zone.dragover { background-color: var(--secondary-color); border-color: var(--accent-teal); }
+        .file-info { margin-top: 15px; font-weight: 500; color: var(--accent-teal); }
+        .clear-file-btn { background: none; border: none; color: var(--accent-red); cursor: pointer; margin-left: 10px; font-weight: bold; }
+        .question-types { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+        .checkbox-container { display: inline-flex; align-items: center; cursor: pointer; }
+        .checkbox-container input { display: none; }
+        .checkbox-container .checkmark { width: 22px; height: 22px; background-color: var(--bg-color); border: 2px solid var(--secondary-color); border-radius: 6px; margin-right: 10px; transition: all 0.2s; }
+        .checkbox-container input:checked + .checkmark { background-color: var(--accent-teal); border-color: var(--accent-teal); }
+        .submit-btn { width: 100%; padding: 18px; font-size: 1.2rem; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--accent-red), var(--accent-purple)); border: none; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; position: relative; }
+        .submit-btn:hover { transform: translateY(-4px); box-shadow: 0 8px 25px var(--glow-red); }
+        .submit-btn:active { transform: translateY(-2px) scale(0.98); }
+        .results-area { margin-top: 30px; padding: 30px; background-color: var(--bg-color); border-radius: var(--border-radius); min-height: 120px; border: 1px solid var(--secondary-color); position: relative; }
+        #copy-btn { position: absolute; top: 15px; right: 15px; background: var(--secondary-color); border: none; color: var(--text-color); padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.3s; opacity: 0; visibility: hidden; }
+        #copy-btn svg { width: 20px; height: 20px; }
+        .results-area:hover #copy-btn { opacity: 1; visibility: visible; }
+        #copy-btn:hover { background: var(--accent-teal); }
+        #copy-notification { position: absolute; top: 60px; right: 15px; background: var(--accent-teal); color: #fff; padding: 5px 10px; border-radius: 6px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; }
+        #result-content { white-space: pre-wrap; font-size: 1rem; line-height: 1.8; }
+        .error-message { color: var(--accent-red); font-weight: 600; }
+        
+        .loader {
+            display: none; position: absolute; top: 50%; left: 50%; 
+            width: 60px; height: 60px;
+            transform: translate(-50%, -50%);
+        }
+        .loader::before {
+            content: ''; position: absolute; width: 100%; height: 100%;
+            border-radius: 50%; border: 5px solid var(--secondary-color);
+            border-top-color: var(--accent-purple); border-bottom-color: var(--accent-red);
+            border-left-color: var(--accent-teal);
+            animation: spin 1.5s linear infinite;
+        }
+        
+        .btn-spinner { border: 3px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; width: 20px; height: 20px; animation: btn-spin 1s linear infinite; display: none; margin: 0 auto; }
+        @keyframes btn-spin { to { transform: rotate(360deg); } }
+        .submit-btn.loading .btn-text { display: none; }
+        .submit-btn.loading .btn-spinner { display: block; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); z-index: 200; justify-content: center; align-items: center; }
+        .modal.active { display: flex; animation: fadeIn 0.3s; }
+        .modal-content { background-color: var(--primary-color); padding: 30px 40px; border-radius: var(--border-radius); border: 1px solid var(--secondary-color); text-align: center; position: relative; width: 90%; max-width: 600px; }
+        .modal-content h2 { margin-bottom: 25px; }
+        .modal-content .form-group { text-align: left; }
+        .input-field[disabled] { background-color: var(--secondary-color); cursor: not-allowed; opacity: 0.7; }
+        #save-profile-btn { margin-top: 10px; background: var(--accent-teal); }
+        .close-modal-btn { position: absolute; top: 15px; right: 20px; font-size: 2rem; color: var(--text-color); cursor: pointer; border: none; background: none; }
+        
+        #phone-verification-group { display: flex; gap: 10px; align-items: flex-end; }
+        #phone-verification-group .input-field { flex: 1; }
+        #verify-phone-btn { padding: 16px; font-size: 1rem; border-radius: 10px; }
+        #otp-group { display: none; }
+        .verification-status { margin-top: 8px; font-weight: 500; }
+        .verified { color: var(--accent-teal); }
+        .not-verified { color: var(--accent-red); }
+
+        #history-list { list-style: none; max-height: 400px; overflow-y: auto; text-align: left; }
+        #history-list li { padding: 15px; border-bottom: 1px solid var(--secondary-color); cursor: pointer; transition: background-color 0.3s; }
+        #history-list li:hover { background-color: var(--secondary-color); }
+        #history-list li strong { color: var(--accent-teal); }
+
+        @media (max-width: 600px) { body { padding: 10px; } header h1 { font-size: 2.2rem; } main { padding: 20px; } .tab-button { font-size: 0.9rem; } .row { flex-direction: column; gap: 0; } }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen"><div class="splash-spinner"></div><p id="processing-text" class="splash-text">Initializing...</p></div>
+    
+    <div id="auth-container">
+        <div id="login-form" class="auth-form active">
+            <h2>Spark Learner</h2>
+            <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" class="input-field"></div>
+            <div class="form-group"><label for="login-password">Password</label><input type="password" id="login-password" class="input-field"></div>
+            <p id="login-error" class="auth-error"></p>
+            <button id="login-btn" class="submit-btn"><span class="btn-text">Login</span><div class="btn-spinner"></div></button>
+            <p class="forgot-password" onclick="handleForgotPassword()">Forgot Password?</p>
+            <p class="toggle-auth" onclick="toggleAuth('signup')">Don't have an account? Sign Up</p>
+        </div>
+        <div id="signup-form" class="auth-form">
+            <h2>Sign Up</h2>
+            <div class="form-group"><label for="signup-name">Name</label><input type="text" id="signup-name" class="input-field"></div>
+            <div class="form-group"><label for="signup-email">Email</label><input type="email" id="signup-email" class="input-field"></div>
+            <div class="form-group"><label for="signup-password">Password</label><input type="password" id="signup-password" class="input-field"></div>
+            <p id="signup-error" class="auth-error"></p>
+            <button id="signup-btn" class="submit-btn"><span class="btn-text">Sign Up</span><div class="btn-spinner"></div></button>
+            <p class="toggle-auth" onclick="toggleAuth('login')">Already have an account? Login</p>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <h1>Spark Learner</h1>
+            <div id="menu-container">
+                <svg id="menu-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                <div id="dropdown-menu">
+                    <button id="profile-btn" class="menu-item"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>Profile</button>
+                    <button id="history-btn" class="menu-item"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>History</button>
+                    <div id="theme-toggle-container"><span style="font-weight: 500;">Theme</span><div id="theme-toggle"></div></div>
+                    <button id="logout-btn" class="menu-item"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" /></svg>Logout</button>
+                </div>
+            </div>
+        </header>
+        <main>
+            <div class="tabs"><button class="tab-button active" data-tab="quick-solve">Quick Solve</button><button class="tab-button" data-tab="exam-prep">Exam Prep</button></div>
+            <div class="tab-content-container">
+                <div id="quick-solve" class="tab-content active">
+                     <div class="row"><div class="form-group"><label for="class-solve">Class:</label><select id="class-solve" class="select-field"><option value="General">General</option><option value="Nursery">Nursery</option><option value="LKG">LKG</option><option value="UKG">UKG</option><option value="Class 1">Class 1</option><option value="Class 2">Class 2</option><option value="Class 3">Class 3</option><option value="Class 4">Class 4</option><option value="Class 5">Class 5</option><option value="Class 6">Class 6</option><option value="Class 7">Class 7</option><option value="Class 8">Class 8</option></select></div><div class="form-group"><label for="subject">Subject:</label><select id="subject" class="select-field"><option value="General">General</option><option value="Hindi">Hindi</option><option value="Vyakaran (Hindi Grammar)">Vyakaran</option><option value="English">English</option><option value="Grammar (English)">Grammar</option><option value="Mathematics">Mathematics</option><option value="Physics">Physics</option><option value="Chemistry">Chemistry</option><option value="Biology">Biology</option><option value="History">History</option><option value="Geography">Geography</option><option value="Political Science">Political Science</option><option value="Economics">Economics</option><option value="Computer Science">Computer Science</option><option value="Sanskrit">Sanskrit</option></select></div></div>
+                    <div class="form-group"><label for="question">Type Your Question:</label><textarea id="question" class="textarea-field" placeholder="Type your question here..."></textarea></div>
+                    <div class="form-group"><label for="image-upload-solve">Or Upload an Image:</label><div id="drop-zone-solve" class="drop-zone"><span class="drop-zone-text">Drag & Drop image here, or click to select</span><input type="file" id="image-upload-solve" accept="image/png, image/jpeg, image/webp" style="display:none;"><div id="file-info-solve" class="file-info"></div></div></div>
+                    <button id="get-answer-btn" class="submit-btn">Get Instant Answer</button>
+                </div>
+                <div id="exam-prep" class="tab-content">
+                     <div class="row"><div class="form-group"><label for="class-exam">Class:</label><select id="class-exam" class="select-field"><option value="General">General</option><option value="Nursery">Nursery</option><option value="LKG">LKG</option><option value="UKG">UKG</option><option value="Class 1">Class 1</option><option value="Class 2">Class 2</option><option value="Class 3">Class 3</option><option value="Class 4">Class 4</option><option value="Class 5">Class 5</option><option value="Class 6">Class 6</option><option value="Class 7">Class 7</option><option value="Class 8">Class 8</option></select></div><div class="form-group"><label for="exam-subject">Subject:</label><input type="text" id="exam-subject" class="input-field" placeholder="e.g., Physics, History"></div></div>
+                    <div class="form-group"><label for="syllabus">Syllabus / Topics:</label><textarea id="syllabus" class="textarea-field" placeholder="Enter topics like 'Newton's Laws of Motion, Work Energy Power...'"></textarea></div>
+                    <div class="form-group"><label for="image-upload-exam">Or Upload Syllabus Image:</label><div id="drop-zone-exam" class="drop-zone"><span class="drop-zone-text">Drag & Drop image here, or click to select</span><input type="file" id="image-upload-exam" accept="image/png, image/jpeg, image/webp" style="display:none;"><div id="file-info-exam" class="file-info"></div></div></div>
+                    <div class="row"><div class="form-group"><label for="marks">Total Marks:</label><input type="number" id="marks" class="input-field" placeholder="e.g., 70"></div><div class="form-group"><label for="num-questions">Number of Questions:</label><select id="num-questions" class="select-field"><option value="5">5</option><option value="25">25</option><option value="50">50</option><option value="75">75</option><option value="80">80</option><option value="100">100</option></select></div></div>
+                    <div class="form-group">
+                        <label>Question Types (Select all that apply):</label>
+                        <div class="question-types"><label class="checkbox-container">MCQ<input type="checkbox" value="MCQ"><span class="checkmark"></span></label><label class="checkbox-container">Fill in the Blanks<input type="checkbox" value="Fill in the Blanks"><span class="checkmark"></span></label><label class="checkbox-container">True / False<input type="checkbox" value="True / False"><span class="checkmark"></span></label><label class="checkbox-container">Match the Following<input type="checkbox" value="Match the Following"><span class="checkmark"></span></label><label class="checkbox-container">One-Word Answer<input type="checkbox" value="One-Word Answer"><span class="checkmark"></span></label><label class="checkbox-container">Short Answer<input type="checkbox" value="Short Answer Questions"><span class="checkmark"></span></label><label class="checkbox-container">Long Answer<input type="checkbox" value="Long Answer Questions"><span class="checkmark"></span></label><label class="checkbox-container">Diagram-Based<input type="checkbox" value="Diagram-Based Questions"><span class="checkmark"></span></label><label class="checkbox-container">Case-Study<input type="checkbox" value="Case-Study Based Questions"><span class="checkmark"></span></label></div>
+                    </div>
+                    <button id="get-questions-btn" class="submit-btn">Generate Exam Paper</button>
+                </div>
+            </div>
+            <div class="results-area"><button id="copy-btn"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" /></svg></button><span id="copy-notification">Copied!</span><div class="loader"></div><div id="result-content">Your AI-generated answer will appear here...</div></div>
+        </main>
+    </div>
+
+    <div id="profile-modal" class="modal"><div class="modal-content"><button class="close-modal-btn">&times;</button><h2>My Profile</h2><div class="form-group"><label for="profile-name-input">Name:</label><input type="text" id="profile-name-input" class="input-field"></div><div class="form-group"><label for="profile-email-input">Email:</label><input type="email" id="profile-email-input" class="input-field" disabled></div><div class="form-group"><label for="profile-phone-input">Phone Number:</label><div id="phone-verification-group"><input type="tel" id="profile-phone-input" class="input-field" placeholder="Add phone number..."><button id="verify-phone-btn" class="submit-btn" style="width: auto;">Verify</button></div><p id="phone-status" class="verification-status"></p><div id="otp-group" class="form-group" style="display: none; margin-top: 15px;"><label>Enter OTP:</label><div id="phone-verification-group"><input type="number" id="otp-input" class="input-field" placeholder="6-digit OTP"><button id="submit-otp-btn" class="submit-btn" style="width: auto;">Submit</button></div></div></div><div class="form-group"><label for="profile-address-input">Address:</label><textarea id="profile-address-input" class="textarea-field" placeholder="Add your address..."></textarea></div><button id="save-profile-btn" class="submit-btn"><span class="btn-text">Save Changes</span><div class="btn-spinner"></div></button></div></div>
+    <div id="history-modal" class="modal"><div class="modal-content"><button class="close-modal-btn">&times;</button><h2>Query History</h2><ul id="history-list"><p>Your past queries will appear here.</p></ul></div></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyApxKcZuRg3BLAFsZ65Oqh8oUXK6pWljMk",
+            authDomain: "spark-learner-cc3e6.firebaseapp.com",
+            databaseURL: "https://spark-learner-cc3e6-default-rtdb.firebaseio.com",
+            projectId: "spark-learner-cc3e6",
+            storageBucket: "spark-learner-cc3e6.appspot.com",
+            messagingSenderId: "1076703176637",
+            appId: "1:1076703176637:web:361515e34a1b12924354d4"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const GEMINI_API_KEY = "AIzaSyDn88v3QyNPz-cf7E6vl1yuvL7yjnDI7uU";
+        const MODEL = "gemini-1.5-flash-latest"; 
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        
+        let solveImageData = null, examImageData = null;
+        const loader = document.querySelector('.loader'), resultContent = document.getElementById('result-content');
+        const authContainer = document.getElementById('auth-container'), appContainer = document.querySelector('.app-container');
+        const defaultResultText = 'Your AI-generated answer will appear here...';
+        const splashScreen = document.getElementById('splash-screen'), processingText = document.getElementById('processing-text');
+        
+        auth.onAuthStateChanged(user => {
+            const theme = localStorage.getItem('sparkLearnerTheme') || 'dark';
+            document.body.dataset.theme = theme;
+            if (user) {
+                if (document.body.style.alignItems !== 'flex-start') document.body.style.alignItems = 'flex-start';
+                showApp(false);
+            } else {
+                document.body.style.alignItems = 'center';
+                splashScreen.style.display = 'none';
+                authContainer.style.display = 'block';
+                appContainer.style.display = 'none';
+            }
+        });
+
+        function showApp(withSplash) {
+            if (withSplash) {
+                authContainer.style.display = 'none';
+                splashScreen.style.display = 'flex';
+                processingText.textContent = "Processing...";
+                setTimeout(() => {
+                    splashScreen.style.animation = 'fadeOut 0.5s ease-out forwards';
+                    setTimeout(() => {
+                        splashScreen.style.display = 'none';
+                        splashScreen.style.animation = '';
+                        document.body.style.alignItems = 'flex-start';
+                        appContainer.style.display = 'block';
+                        appContainer.style.animation = 'fadeIn 0.5s ease-out';
+                    }, 500);
+                }, 3000);
+            } else {
+                splashScreen.style.display = 'none';
+                authContainer.style.display = 'none';
+                appContainer.style.display = 'block';
+            }
+        }
+
+        function toggleAuth(form) { document.getElementById('login-form').classList.toggle('active', form === 'login'); document.getElementById('signup-form').classList.toggle('active', form === 'signup'); document.getElementById('login-error').textContent = ''; document.getElementById('signup-error').textContent = ''; }
+        function showButtonLoader(button, show) { button.classList.toggle('loading', show); button.disabled = show; }
+        
+        document.getElementById('signup-btn').addEventListener('click', () => {
+            const name = document.getElementById('signup-name').value, email = document.getElementById('signup-email').value, password = document.getElementById('signup-password').value, btn = document.getElementById('signup-btn'), errorEl = document.getElementById('signup-error');
+            if (!name || !email || !password) { errorEl.textContent = "All fields are required."; return; }
+            if (password.length < 6) { errorEl.textContent = "Password must be at least 6 characters long."; return; }
+            showButtonLoader(btn, true); errorEl.textContent = '';
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(userCredential => {
+                    const user = userCredential.user;
+                    return db.collection('users').doc(user.uid).set({ name, email, phone: '', address: '', phoneVerified: false }).then(() => showApp(true));
+                })
+                .catch(error => { errorEl.textContent = error.message; })
+                .finally(() => showButtonLoader(btn, false));
+        });
+
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const email = document.getElementById('login-email').value, password = document.getElementById('login-password').value, btn = document.getElementById('login-btn'), errorEl = document.getElementById('login-error');
+            if (!email || !password) { errorEl.textContent = "Email and password are required."; return; }
+            showButtonLoader(btn, true); errorEl.textContent = '';
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .then(() => showApp(true))
+                .catch(error => { errorEl.textContent = "Incorrect email or password."; })
+                .finally(() => showButtonLoader(btn, false));
+        });
+        
+        function handleForgotPassword() {
+            const email = prompt("Please enter your email to reset your password:");
+            if (email) {
+                auth.sendPasswordResetEmail(email)
+                    .then(() => alert("Password reset email sent! Please check your inbox."))
+                    .catch(error => alert(`Error: ${error.message}`));
+            }
+        }
+        
+        const menuIcon = document.getElementById('menu-icon'), dropdownMenu = document.getElementById('dropdown-menu'), profileModal = document.getElementById('profile-modal'), historyModal = document.getElementById('history-modal');
+        menuIcon.addEventListener('click', (e) => { e.stopPropagation(); dropdownMenu.classList.toggle('active'); });
+        
+        document.getElementById('profile-btn').addEventListener('click', () => {
+            const user = auth.currentUser;
+            if (user) {
+                db.collection('users').doc(user.uid).get().then(doc => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        document.getElementById('profile-name-input').value = userData.name;
+                        document.getElementById('profile-email-input').value = user.email;
+                        document.getElementById('profile-phone-input').value = userData.phone || '';
+                        document.getElementById('profile-address-input').value = userData.address || '';
+                        profileModal.classList.add('active');
+                    }
+                });
+            }
+        });
+
+        document.getElementById('save-profile-btn').addEventListener('click', () => {
+            const btn = document.getElementById('save-profile-btn'), btnText = btn.querySelector('.btn-text'), user = auth.currentUser;
+            showButtonLoader(btn, true);
+            if(user){
+                db.collection('users').doc(user.uid).update({ 
+                    name: document.getElementById('profile-name-input').value,
+                    phone: document.getElementById('profile-phone-input').value,
+                    address: document.getElementById('profile-address-input').value,
+                })
+                .then(() => {
+                    setTimeout(() => { btnText.textContent = 'Saved ✔'; }, 1000);
+                    setTimeout(() => { showButtonLoader(btn, false); profileModal.classList.remove('active'); btnText.textContent = 'Save Changes'; }, 2000);
+                }).catch(error => {
+                    alert('Error saving profile: ' + error.message);
+                    showButtonLoader(btn, false);
+                });
+            }
+        });
+
+        document.getElementById('history-btn').addEventListener('click', () => {
+            const user = auth.currentUser;
+            if (user) {
+                db.collection('users').doc(user.uid).collection('history').orderBy('timestamp', 'desc').limit(20).get().then(snapshot => {
+                    const historyList = document.getElementById('history-list');
+                    historyList.innerHTML = '';
+                    if (snapshot.empty) { historyList.innerHTML = '<p>No history found.</p>'; } 
+                    else {
+                        snapshot.forEach(doc => {
+                            const item = doc.data();
+                            const li = document.createElement('li');
+                            li.innerHTML = `<strong>${item.type}:</strong> ${item.query.substring(0, 50)}...`;
+                            li.onclick = () => { resultContent.innerHTML = item.answer.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>'); historyModal.classList.remove('active'); };
+                            historyList.appendChild(li);
+                        });
+                    }
+                    historyModal.classList.add('active');
+                });
+            }
+        });
+        
+        document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => { profileModal.classList.remove('active'); historyModal.classList.remove('active'); }));
+        document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); }));
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            appContainer.style.animation = 'fadeOut 0.5s ease-out forwards';
+            setTimeout(() => {
+                appContainer.style.display = 'none'; splashScreen.style.display = 'flex';
+                processingText.textContent = "Logging out...";
+                setTimeout(() => { auth.signOut(); }, 2000);
+            }, 500);
+        });
+
+        document.getElementById('theme-toggle').addEventListener('click', () => { const newTheme = document.body.dataset.theme === 'dark' ? 'light' : 'dark'; document.body.dataset.theme = newTheme; localStorage.setItem('sparkLearnerTheme', newTheme); });
+        window.addEventListener('click', () => { if (dropdownMenu.classList.contains('active')) dropdownMenu.classList.remove('active'); });
+
+        document.querySelectorAll('.tab-button').forEach(tab => { tab.addEventListener('click', (e) => { document.querySelectorAll('.tab-button').forEach(item => item.classList.remove('active')); e.target.classList.add('active'); const activeTab = document.querySelector('.tab-content.active'); if(activeTab) activeTab.classList.remove('active'); document.getElementById(e.target.dataset.tab).classList.add('active'); resultContent.innerHTML = defaultResultText; }); });
+        function setupDropZone(dropZoneId, fileInputId, fileInfoId) { const dropZone = document.getElementById(dropZoneId), fileInput = document.getElementById(fileInputId); dropZone.addEventListener('click', () => fileInput.click()); dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); }); dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover')); dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0], fileInfoId); }); fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0], fileInfoId); }); }
+        function handleFile(file, fileInfoId) { if (!file.type.startsWith('image/')) { alert('Please upload only image files (JPG, PNG, WebP).'); return; } const reader = new FileReader(); reader.onloadend = () => { const imageData = { mimeType: file.type, data: reader.result.split(',')[1] }; if (fileInfoId.includes('solve')) solveImageData = imageData; else examImageData = imageData; document.getElementById(fileInfoId).innerHTML = `${file.name} <button class="clear-file-btn" onclick="clearFile('${fileInfoId}')">X</button>`; }; reader.readAsDataURL(file); }
+        function clearFile(fileInfoId) { if (fileInfoId.includes('solve')) { solveImageData = null; document.getElementById('image-upload-solve').value = ''; } else { examImageData = null; document.getElementById('image-upload-exam').value = ''; } document.getElementById(fileInfoId).innerHTML = ''; }
+        setupDropZone('drop-zone-solve', 'image-upload-solve', 'file-info-solve'); setupDropZone('drop-zone-exam', 'image-upload-exam', 'file-info-exam');
+        document.getElementById('get-answer-btn').addEventListener('click', () => { const sClass = document.getElementById('class-solve').value, subject = document.getElementById('subject').value, question = document.getElementById('question').value; if (!question.trim() && !solveImageData) { alert('Please type a question or upload an image.'); return; } let promptText = `You are an expert tutor for ${sClass} students in ${subject}. Solve the academic question provided in the text/image clearly and provide a step-by-step explanation. If the image doesn't contain a recognizable question, your ONLY response must be: "Error: The uploaded image does not seem to contain a valid question. Please upload another image."`; const promptParts = [{text: promptText}]; if (question.trim()) { promptParts.push({text: `User's text question: "${question}"`}); } if (solveImageData) { promptParts.push({ inline_data: { mime_type: solveImageData.mimeType, data: solveImageData.data } }); } getAiResponse(promptParts, {type: 'Quick Solve', query: question}); });
+        document.getElementById('get-questions-btn').addEventListener('click', () => { const sClass = document.getElementById('class-exam').value, subject = document.getElementById('exam-subject').value, syllabus = document.getElementById('syllabus').value, marks = document.getElementById('marks').value, numQuestions = document.getElementById('num-questions').value, questionTypes = Array.from(document.querySelectorAll('#exam-prep .question-types input:checked')).map(cb => cb.value).join(', '); if (!subject.trim()) { alert('Please enter a subject.'); return; } if (!syllabus.trim() && !examImageData) { alert('Please enter a syllabus or upload an image.'); return; } if (!questionTypes) { alert('Please select at least one question type.'); return; } let promptText = `You are an expert exam paper creator. Create a well-structured exam paper for ${sClass} students on the subject: ${subject}. The paper should be for a total of ${marks || 'an appropriate number of'} marks and contain approximately ${numQuestions} questions. It must include: ${questionTypes}. Base it strictly on the syllabus from the text/image.`; const promptParts = [{text: promptText}]; if (syllabus.trim()) { promptParts.push({text: `\nSyllabus: ${syllabus}`}); } if (examImageData) { promptParts.push({ inline_data: { mime_type: examImageData.mimeType, data: examImageData.data } }); } getAiResponse(promptParts, {type: 'Exam Prep', query: `Subject: ${subject}, Syllabus: ${syllabus || 'Image'}`}); });
+        document.getElementById('copy-btn').addEventListener('click', () => { navigator.clipboard.writeText(resultContent.innerText); const notification = document.getElementById('copy-notification'); notification.style.opacity = '1'; setTimeout(() => notification.style.opacity = '0', 2000); });
+        
+        async function getAiResponse(promptParts, historyData) {
+            loader.style.display = 'block'; resultContent.innerHTML = ''; const requestBody = { contents: [{ parts: promptParts }] };
+            try {
+                const response = await fetch(GEMINI_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
+                const data = await response.json(); if (!response.ok) { throw new Error(data.error?.message || `API Error: ${response.status} - ${response.statusText}`); }
+                if (data.candidates && data.candidates[0].content) {
+                    const aiText = data.candidates[0].content.parts[0].text;
+                    if (aiText.startsWith("Error:")) { resultContent.innerHTML = `<span class="error-message">${aiText}</span>`; } 
+                    else { 
+                        resultContent.innerHTML = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>'); 
+                        const user = auth.currentUser;
+                        if (user) { db.collection('users').doc(user.uid).collection('history').add({ ...historyData, answer: aiText, timestamp: firebase.firestore.FieldValue.serverTimestamp() }); }
+                    }
+                } else { resultContent.innerHTML = `<span class="error-message">Sorry, a valid response could not be generated. This may be due to safety filters.</span>`; }
+            } catch (error) { console.error('Error details:', error); resultContent.innerHTML = `<span class="error-message">Error: ${error.message}. Please verify your API key and network connection.</span>`; } 
+            finally { loader.style.display = 'none'; }
+        }
+    </script>
+</body>
+</html>
